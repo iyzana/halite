@@ -77,6 +77,14 @@ class GameMap:
         dy = min(abs(sq1.y - sq2.y), sq1.y + self.height - sq2.y, sq2.y + self.height - sq1.y)
         return dx + dy
 
+    def get_direction(self, sq1, sq2):
+        "Returns distance from sq1 to sq2"
+        assert self.get_distance(sq1, sq2) == 1
+
+        for direction, neighbor in enumerate(self.neighbors(sq1)):
+            if sq2 == neighbor:
+                return direction
+
 #################################################################
 # Functions for communicating with the Halite game environment  #
 #################################################################
