@@ -82,7 +82,7 @@ class GameMap:
         assert self.get_distance(sq1, sq2) == 1
 
         for direction, neighbor in enumerate(self.neighbors(sq1)):
-            if sq2 == neighbor:
+            if sq2.x == neighbor.x and sq2.y == neighbor.y:
                 return direction
 
 #################################################################
