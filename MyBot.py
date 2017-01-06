@@ -127,7 +127,7 @@ def get_strength_from_adjacent(current, needed_strength, visited, depth=0):
 
     neighbors = [neighbor for neighbor in game_map.neighbors(current) if neighbor.owner == myId and neighbor not in visited]
 
-    next_visited = visited | neighbors
+    next_visited = visited.union(neighbors)
     next_visited.add(current)
     neighbor_strengths = map(lambda n: get_strength_from_adjacent(n, needed_strength - ((current.strength + current.production) if depth != 0 else 0), next_visited, depth + 1), neighbors)
     neighbor_strengths = [x for y in neighbor_strengths for x in y if x[0].strength != 0]
