@@ -77,7 +77,7 @@ def get_capture_moves_internal(adjacents, capturee, t=0):
         #     if capture_moves:
         #         return capture_moves
         # else:
-             return []  # needs more recursion
+        return []  # needs more recursion
 
     for subset in strong_combinations:
         wasted_energy = sum(map(production_next_tick, subset))
@@ -110,7 +110,9 @@ def get_strength_from_adjacent(current, needed_strength, visited, depth=0):
 
     neighbors = [neighbor for neighbor in game_map.neighbors(current) if neighbor.owner == myId and neighbor not in visited]
 
-    neighbor_strengths = map(lambda n: get_strength_from_adjacent(n, needed_strength-((current.strength+current.production) if depth != 0 else 0), visited.union(set([current]+neighbors)), depth+1), neighbors)
+    next_visited = visited.union(neighbors)
+    next_visited.add(current)
+    neighbor_strengths = map(lambda n: get_strength_from_adjacent(n, needed_strength - ((current.strength + current.production) if depth != 0 else 0), next_visited, depth + 1), neighbors)
     neighbor_strengths = [x for y in neighbor_strengths for x in y if x[0].strength != 0]
 
     strength_combinations = [list(combination) for combination_length in range(len(neighbor_strengths)) for combination in
