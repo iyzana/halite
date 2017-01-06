@@ -10,3 +10,7 @@ select the border with best heuristic
 apply it and filter the paths for the other borders
 filter the borders with no paths
 repeat from 9 until none are left
+
+to fix:
+capture 0 val tiles with 0 val tiles
+it is too slow

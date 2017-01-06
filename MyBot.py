@@ -104,7 +104,6 @@ def strength_combination_for_tile(tile):
 
 
 def get_strength_from_adjacent(current, needed_strength, visited, depth=0):
-    logging.debug(needed_strength)
     if (depth > 1) or (needed_strength < 0):
         return strength_combination_for_tile(current)
 
@@ -112,7 +111,7 @@ def get_strength_from_adjacent(current, needed_strength, visited, depth=0):
 
     next_visited = visited.union(neighbors)
     next_visited.add(current)
-    neighbor_strengths = map(lambda n: get_strength_from_adjacent(n, needed_strength - ((current.strength + current.production) if depth != 0 else 0), next_visited, depth + 1), neighbors)
+    neighbor_strengths = map(lambda n: get_strength_from_adjacent(n, needed_strength - n.strength, next_visited, depth + 1), neighbors)
     neighbor_strengths = [x for y in neighbor_strengths for x in y if x[0].strength != 0]
 
     strength_combinations = [list(combination) for combination_length in range(len(neighbor_strengths)) for combination in
@@ -121,32 +120,46 @@ def get_strength_from_adjacent(current, needed_strength, visited, depth=0):
     distinct_strength_combinations = []
 
     for strength_combination in strength_combinations:
-        if len(strength_combination) == len(set(map(lambda x: (x[0].x, x[0].y), strength_combination))):
+        if len(strength_combination) == len(set(map(lambda t: (t[0].x, t[0].y), strength_combination))):
             distinct_strength_combinations.append(strength_combination)
 
-    def ConstructSC(strength, previous_loss, time):
-        return StrengthCombination(current.x, current.y, min(255, strength), max(0, strength - 255) + production_next_tick(current) + previous_loss, time)
+    def construct_sc(strength, previous_loss, time):
+        return StrengthCombination(current.x, current.y, min(255, strength), max(0, strength - 255) + (production_next_tick(current) if depth != 0 else 0) + previous_loss, time)
 
-    strength_combinations_for_current_neighbors = [(ConstructSC(((current.strength + current.production) if depth != 0 else 0) + n.strength, n.production, 1), strength_combination_for_tile(n)) for n in neighbors if n.strength != 0]
+   # strength_combinations_for_current_neighbors = [(construct_sc(((current.strength + current.production) if depth != 0 else 0) + n.strength, n.production, 1), strength_combination_for_tile(n)) for n in neighbors if n.strength != 0]
 
     def construct_tuple(strength_combination):
-        path = [(combo[0].strength, combo[0].production, combo[0].time) for combo in strength_combination]
-        strength_sum = sum(map(itemgetter(0), path))
-        production_sum = sum(map(itemgetter(1), path))
-        max_time = max(map(itemgetter(2), path))
+        path = [combo[0] for combo in strength_combination]
+        strength_sum = sum(map(itemgetter(2), path))
+        production_sum = sum(map(itemgetter(3), path))
+        max_time = max(map(itemgetter(4), path))
 
-        if max_time == 0:
-            return None
+        # if max_time == 0:
+        #     return None
 
         if depth != 0:
             strength_sum = current.strength + strength_sum + current.production
 
-        return (ConstructSC(strength_sum, production_sum, max_time+1), strength_combination)
+        return construct_sc(strength_sum, production_sum, max_time + 1), strength_combination
 
-    strength_combinations_for_rest = list(filter(None, [construct_tuple(strength_combination) for strength_combination in distinct_strength_combinations]))
+    strength_combinations_data = [construct_tuple(strength_combination) for strength_combination in distinct_strength_combinations]
 
-    return strength_combinations_for_current_neighbors + strength_combinations_for_rest
+    if depth != 0:
+        if current.strength >= needed_strength:
+            strength_combinations_data.extend(strength_combination_for_tile(current))
+        elif (current.strength + current.production) > needed_strength:
+            logging.debug("next tick stuff")
+            strength_combinations_data.append((StrengthCombination(current.x, current.y, current.strength + current.production, production_next_tick(current), 1), None))
 
+    return strength_combinations_data
+
+
+def get_energy_source_paths(tile):
+    possible_energy_sources = get_strength_from_adjacent(tile, tile.strength, set())
+    # logging.debug("all paths {}".format(possible_energy_sources))
+    strong_energy_sources = [source for source in possible_energy_sources if source[0].strength >= tile.strength]
+    strong_energy_sources = sorted(strong_energy_sources, key=lambda item: (item[0].time, item[0].production))
+    return strong_energy_sources
 
 # [(s1, [(s2, [...]), (s3, None)]), ...]
 
@@ -154,20 +167,22 @@ def tick():
     game_map.get_frame()
     moves.clear()
 
-    border = list(find_borders())
+    borders = list(find_borders())
 
-    if current_tick == 100:
-        logging.debug("examined border {}".format(border[0]))
-        logging.debug(get_strength_from_adjacent(border[0], border[0].strength, set()))
+    # if current_tick == 100:
+    for border in borders:
+        # border = borders[0]
+        # logging.debug("examined border {}".format(border))
+        possible_paths=get_energy_source_paths(border)
+        # logging.debug("possible paths {}".format(possible_paths))
 
-    tile_capture_moves = {tile: get_capture_moves(tile) for tile in border}
+    tile_capture_moves = {tile: get_capture_moves(tile) for tile in borders}
     tile_capture_moves = dict(filter(lambda t: len(t[1]) > 0, tile_capture_moves.items()))
 
     tile_capture_moves = [(tile.production, capture_moves) for tile, capture_moves in tile_capture_moves.items()]
     capture_moves_dict = sorted(tile_capture_moves, reverse=True)
     capture_moves_list = map(itemgetter(1), capture_moves_dict)
-    all_capture_moves = [capture_move.move for capture_moves in capture_moves_list
-                         for capture_move in capture_moves]
+    all_capture_moves = [capture_move.move for capture_moves in capture_moves_list for capture_move in capture_moves]
 
     distinct_moves = {}
     for capture_move in all_capture_moves:
