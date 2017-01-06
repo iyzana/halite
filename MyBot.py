@@ -62,22 +62,22 @@ def get_capture_moves_internal(adjacents, capturee, t=0):
     strong_combinations = [c for c in adjacent_combinations if (total_strength(c) > capturee.strength)]
 
     if not strong_combinations:
-        if t == 0:
-            for adjacent in adjacents:
-                adjacent.strength += adjacent.production
-
-            capture_moves = get_capture_moves_internal(adjacents, capturee, 1)
-
-            if not capture_moves:
-                pass
-
-            for adjacent in adjacents:
-                adjacent.strength -= adjacent.production
-
-            if capture_moves:
-                return capture_moves
-        else:
-            return []  # needs more recursion
+        # if t == 0:
+        #     for adjacent in adjacents:
+        #         adjacent.strength += adjacent.production
+        #
+        #     capture_moves = get_capture_moves_internal(adjacents, capturee, 1)
+        #
+        #     if not capture_moves:
+        #         pass
+        #
+        #     for adjacent in adjacents:
+        #         adjacent.strength -= adjacent.production
+        #
+        #     if capture_moves:
+        #         return capture_moves
+        # else:
+             return []  # needs more recursion
 
     for subset in strong_combinations:
         wasted_energy = sum(map(production_next_tick, subset))
@@ -97,12 +97,78 @@ def get_capture_moves_internal(adjacents, capturee, t=0):
 
     return [CaptureMove(Move(tile, game_map.get_direction(tile, capturee)), t) for tile in least_waste]
 
+StrengthCombination = namedtuple('StrengthCombination', 'x y strength production')
+
+
+def calc_path_strength(current, path, depth):
+    path_sum = sum([combi[0].strength for combi in path])
+
+    if depth != 0:
+        return current.strength+path_sum+current.production
+    else:
+        return path_sum
+
+
+def calc_previous_loss(path):
+    path_sum = sum([combi[0].production for combi in path])
+
+    return path_sum
+
+
+def strength_combination_for_tile(tile):
+    return [(StrengthCombination(tile.x, tile.y, tile.strength, production_next_tick(tile)), None)]
+
+
+def get_strength_from_adjacent(current, needed_strength, visited, depth=0):
+    logging.debug(needed_strength)
+    if (depth > 1) or (needed_strength < 0):
+        return strength_combination_for_tile(current)
+
+    neighbors = [neighbor for neighbor in game_map.neighbors(current) if neighbor.owner == myId and neighbor not in visited]
+
+    neighbor_strengths = map(lambda n: get_strength_from_adjacent(n, needed_strength-((current.strength+current.production) if depth != 0 else 0), visited.union(set([current]+neighbors)), depth+1), neighbors)
+    neighbor_strengths = [x for y in neighbor_strengths for x in y if x[0].strength != 0]
+
+    strength_combinations = [list(combination) for combination_length in range(len(neighbor_strengths)) for combination in
+                             combinations(neighbor_strengths, combination_length + 1)]
+
+    distinct_strength_combinations = []
+
+    for strength_combination in strength_combinations:
+        if len(strength_combination) == len(set(map(lambda x: (x[0].x, x[0].y), strength_combination))):
+            distinct_strength_combinations.append(strength_combination)
+
+    def ConstructSC(strength, previous_loss):
+        return StrengthCombination(current.x, current.y, min(255, strength), max(0, strength - 255) + production_next_tick(current) + previous_loss)
+
+    strength_combinations_for_current_neighbors = [(ConstructSC(((current.strength + current.production) if depth != 0 else 0) + n.strength, n.production), strength_combination_for_tile(n)) for n in neighbors if n.strength != 0]
+
+    def construct_tuple(strength_combination):
+        path = [(combi[0].strength, combi[0].production) for combi in strength_combination]
+        strength_sum = sum(map(itemgetter(0), path))
+        production_sum = sum(map(itemgetter(1), path))
+
+        if depth != 0:
+            strength_sum = current.strength + strength_sum + current.production
+
+        return (ConstructSC(strength_sum, production_sum), strength_combination)
+
+    strength_combinations_for_rest = [construct_tuple(strength_combination) for strength_combination in distinct_strength_combinations if len(strength_combination) > 1]
+
+    return strength_combinations_for_current_neighbors + strength_combinations_for_rest
+
+
+# [(s1, [(s2, [...]), (s3, None)]), ...]
 
 def tick():
     game_map.get_frame()
     moves.clear()
 
-    border = find_borders()
+    border = list(find_borders())
+
+    if current_tick == 100:
+        logging.debug("examined border {}".format(border[0]))
+        logging.debug(get_strength_from_adjacent(border[0], border[0].strength, set()))
 
     tile_capture_moves = {tile: get_capture_moves(tile) for tile in border}
     tile_capture_moves = dict(filter(lambda t: len(t[1]) > 0, tile_capture_moves.items()))

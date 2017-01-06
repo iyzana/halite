@@ -1,8 +1,8 @@
-on recursion request (missing_strength - production)
-return (value, loss) tuple combinations
+//on recursion request (missing_strength - production)
+//return (value, loss) tuple combinations
 filtering at the very end
 hand list of visited tiles up the call stack
-unmark as visited when recursion is left
+//unmark as visited when recursion is left
 
 don't build combinations of border tiles
 have a nice heuristic
