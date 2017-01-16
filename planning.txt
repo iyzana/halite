@@ -1,10 +1,10 @@
 //on recursion request (missing_strength - production)
 //return (value, loss) tuple combinations
 filtering at the very end
-hand list of visited tiles up the call stack
+//hand list of visited tiles up the call stack
 //unmark as visited when recursion is left
 
-don't build combinations of border tiles
+//don't build combinations of border tiles
 have a nice heuristic
 select the border with best heuristic
 apply it and filter the paths for the other borders
