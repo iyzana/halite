@@ -194,7 +194,7 @@ def tick():
     planned_tiles = set()
 
     while tile_capture_moves:
-        sorted_capture_moves = sorted(tile_capture_moves, reverse=True, key=lambda t: t[0].production*(10-t[1][0][0].time)-t[1][0][0].loss) # 25 36
+        sorted_capture_moves = sorted(tile_capture_moves, reverse=True, key=lambda t: t[0].production*(10-t[1][0][0].time)-t[1][0][0].loss-(t[0].strength / 8)) # 25 36
 
         best_move = sorted_capture_moves[0][1][0]
 
