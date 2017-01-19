@@ -55,13 +55,19 @@ def strength_combination_for_tile(tile, strength=None, loss=None, time=0, path=N
 # [(s1, [(s2, [...]), (s3, None)]), ...]
 
 def get_energy_source_paths(tile):
+    required_strength = tile.strength
+    enemy_strengths = [enemy.strength for enemy in game_map.neighbors(tile) if enemy.owner != 0 and enemy.owner != myId]
+    if enemy_strengths:
+        required_strength += max(enemy_strengths)
+    required_strength = min(254, required_strength)
+
     max_strength = sum([t.strength for t in game_map.neighbors(tile, n=(search_depth + 1)) if t.owner == myId])
     max_production = sum([t.production for n in range(search_depth) for t in game_map.neighbors(tile, n=n+1) if t.owner == myId])
 
-    if max_strength + max_production < tile.strength:
+    if max_strength + max_production < required_strength:
         return []
 
-    possible_energy_sources = [get_strength_from(neighbor, tile.strength, set()) for neighbor in game_map.neighbors(tile) if neighbor.owner == myId]
+    possible_energy_sources = [get_strength_from(neighbor, required_strength, set()) for neighbor in game_map.neighbors(tile) if neighbor.owner == myId]
 
     def construct_tuple(strength_combination):
         path = [combo[0] for combo in strength_combination]
@@ -77,7 +83,10 @@ def get_energy_source_paths(tile):
     possible_energy_sources = [construct_tuple(strength_combination) for strength_combination in distinct_strength_combinations]
 
     # logging.debug("all paths {}".format(possible_energy_sources))
-    strong_energy_sources = [source for source in possible_energy_sources if source[0].strength > tile.strength]
+    strong_energy_sources = [source for source in possible_energy_sources if source[0].strength > required_strength]
+
+    # if no path found, calculate duration from just the direct neighbors
+
     strong_energy_sources = sorted(strong_energy_sources, key=lambda item: item[0].loss + item[0].time * tile.production)
     return strong_energy_sources
 
