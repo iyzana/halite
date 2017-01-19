@@ -55,11 +55,11 @@ def strength_combination_for_tile(tile, strength=None, loss=None, time=0, path=N
 # [(s1, [(s2, [...]), (s3, None)]), ...]
 
 def get_energy_source_paths(tile):
-    # max_strength = sum([t.strength for t in game_map.neighbors(tile, n=(search_depth + 1)) if t.owner == myId])
-    # max_production = sum([t.production for n in range(search_depth) for t in game_map.neighbors(tile, n=n+1) if t.owner == myId])
-    #
-    # if max_strength + max_production < tile.strength:
-    #     return []
+    max_strength = sum([t.strength for t in game_map.neighbors(tile, n=(search_depth + 1)) if t.owner == myId])
+    max_production = sum([t.production for n in range(search_depth) for t in game_map.neighbors(tile, n=n+1) if t.owner == myId])
+
+    if max_strength + max_production < tile.strength:
+        return []
 
     possible_energy_sources = [get_strength_from(neighbor, tile.strength, set()) for neighbor in game_map.neighbors(tile) if neighbor.owner == myId]
 
@@ -84,10 +84,10 @@ def get_energy_source_paths(tile):
 
 def get_strength_from(tile, needed_strength, visited, depth=0, strength_gain=0): # [node]
     if tile.strength + tile.production + strength_gain > needed_strength:
-        if tile.strength + strength_gain > needed_strength:
+        if tile.strength > needed_strength:
             return [strength_combination_for_tile(tile)]
         else:
-            return [strength_combination_for_tile(tile, strength=tile.strength + tile.production, time=1)]
+            return [strength_combination_for_tile(tile, strength=tile.strength + tile.production + strength_gain, time=1)]
     elif depth < search_depth:
         neighbors = [neighbor for neighbor in game_map.neighbors(tile) if
                      neighbor.owner == myId and neighbor not in visited]
@@ -114,15 +114,27 @@ def get_strength_from(tile, needed_strength, visited, depth=0, strength_gain=0):
 
         result = [construct_tuple(strength_combination) for strength_combination in distinct_strength_combinations]
 
-        if tile.strength + tile.production * 2 + strength_gain > needed_strength:
-            result.append(strength_combination_for_tile(tile, strength=tile.strength + tile.production * 2, time=2))
+        if tile.strength + (tile.production + strength_gain) * 2 > needed_strength:
+            result.append(strength_combination_for_tile(tile, strength=tile.strength + (tile.production + strength_gain) * 2, time=2))
+
+        result.append(strength_combination_for_tile(tile))
+        if current_tick < 30:
+            result.append(strength_combination_for_tile(tile, strength=tile.strength + tile.production + strength_gain, time=1))
+            result.append(strength_combination_for_tile(tile, strength=tile.strength + tile.production * 2 + strength_gain * 2, time=2))
 
         return result
-    elif tile.strength + tile.production * 2 + strength_gain > needed_strength:
-        return [strength_combination_for_tile(tile, strength=tile.strength + tile.production * 2, time=2)]
+    elif tile.strength + tile.production * 2 + strength_gain * 2 > needed_strength:
+        return [strength_combination_for_tile(tile, strength=tile.strength + tile.production * 2 + strength_gain * 2, time=2)]
     else:
+        if current_tick < 30:
+            return [strength_combination_for_tile(tile, strength=tile.strength), strength_combination_for_tile(tile, strength=tile.strength + tile.production + strength_gain, time=1), strength_combination_for_tile(tile, strength=tile.strength + tile.production * 2 + strength_gain * 2, time=2)]
+        if current_tick < 60 and tile.strength != 0:
+            return [strength_combination_for_tile(tile)]
         return []
-
+        # if current_tick < 100:
+        #     return [strength_combination_for_tile(tile), strength_combination_for_tile(tile, strength=tile.strength + tile.production, time=1)]
+        # else:
+        #     return [strength_combination_for_tile(tile)]
 
 # [[node]]
 def merge_substrengths(neighbor_strengths):
@@ -198,7 +210,7 @@ def tick():
 
         best_move = sorted_capture_moves[0][1][0]
 
-        if current_tick == 60:
+        if current_tick == 35:
         # for stuff in tile_capture_moves:
             logging.debug("sorted moves: {}".format(sorted_capture_moves))
 
@@ -213,7 +225,7 @@ def tick():
 
             for possible_moves in possible_moves_for_border:
                 moves_flat = set(map(get_pos, tile_list([possible_moves])))
-                if current_tick == 60:
+                if current_tick == 35:
                     logging.debug("moves flat: {}".format(moves_flat))
                     logging.debug("planned_tiles: {}".format(planned_tiles))
                 if len(moves_flat - planned_tiles) == len(moves_flat):
@@ -233,9 +245,23 @@ def tick():
 
     # moves.extend(distinct_moves.values())
 
-    unmoved_colony = [tile for tile in game_map if (is_inner(tile)) and (should_get_out(tile))]
-    for tile in unmoved_colony:
-        moves.append(Move(tile, SOUTH if tile.production%2 else WEST))
+    if borders:
+        unmoved_colony = [tile for tile in game_map if (is_inner(tile)) and (should_get_out(tile))]
+
+        for tile in unmoved_colony:
+            nearest_tile = sorted(borders.copy(), key=lambda border: game_map.get_distance(border, tile))[0]
+
+            dx = game_map.get_distance_x(tile, nearest_tile)
+            dy = game_map.get_distance_y(tile, nearest_tile)
+
+            if abs(dx) > abs(dy):
+                direction = WEST if dx < 0 else EAST
+            else:
+                direction = SOUTH if dy > 0 else NORTH
+
+            logging.debug("from {} to {} dx {} dy {} direction {}".format(tile, nearest_tile, dx, dy, direction))
+
+            moves.append(Move(tile, direction))
 
     hlt.send_frame(moves)
 

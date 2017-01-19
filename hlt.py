@@ -77,6 +77,36 @@ class GameMap:
         dy = min(abs(sq1.y - sq2.y), sq1.y + self.height - sq2.y, sq2.y + self.height - sq1.y)
         return dx + dy
 
+    def get_distance_x(self, sq1, sq2):
+        dx = sq2.x - sq1.x
+
+        if dx > self.width / 2:
+            dx -= self.width
+        elif dx < -self.width / 2:
+            dx += self.width
+
+        return dx
+
+    def get_distance_y(self, sq1, sq2):
+        dy = sq2.y - sq1.y
+
+        if dy > self.height / 2:
+            dy -= self.height
+        elif dy < -self.height / 2:
+            dy += self.height
+
+        return dy
+
+        # dr = dx if dx >= 0 else self.width + dx
+        # dl = abs(dx) if dx < 0 else self.width - dx
+        #
+        # if abs(dr) < abs(dl):
+        #     return abs(dr)
+        # else:
+        #     return abs(dl)
+        #
+        # return min(abs(sq1.x - sq2.x), sq1.x + self.width - sq2.x, sq2.x + self.width - sq1.x)
+
     def get_direction(self, sq1, sq2):
         "Returns distance from sq1 to sq2"
         assert self.get_distance(sq1, sq2) == 1
