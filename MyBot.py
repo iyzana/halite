@@ -58,7 +58,7 @@ def get_energy_source_paths(tile):
     required_strength = tile.strength
     enemy_strengths = [enemy.strength for enemy in game_map.neighbors(tile) if enemy.owner != 0 and enemy.owner != myId]
     if enemy_strengths:
-        required_strength += max(enemy_strengths)
+        required_strength += sum(enemy_strengths)
     required_strength = min(254, required_strength)
 
     max_strength = sum([t.strength for t in game_map.neighbors(tile, n=(search_depth + 1)) if t.owner == myId])
@@ -196,6 +196,7 @@ def get_pos(data):
         return get_pos(data.square)
     return data.x, data.y
 
+
 def tick():
     game_map.get_frame()
     moves.clear()
@@ -215,7 +216,7 @@ def tick():
     planned_tiles = set()
 
     while tile_capture_moves:
-        sorted_capture_moves = sorted(tile_capture_moves, reverse=True, key=lambda t: t[0].production*(10-t[1][0][0].time)-t[1][0][0].loss-(t[0].strength / 8)) # 25 36
+        sorted_capture_moves = sorted(tile_capture_moves, reverse=True, key=lambda t: t[0].production*(10-t[1][0][0].time)-t[1][0][0].loss-(t[0].strength / 8))
 
         best_move = sorted_capture_moves[0][1][0]
 
@@ -254,11 +255,39 @@ def tick():
 
     # moves.extend(distinct_moves.values())
 
+    max_distance = (game_map.width / 2) + (game_map.height / 2)
+
+    # not_our_tiles = [tile for tile in game_map if tile.owner != myId]
+    #
+    # def partial_border_production_heuristic(border, tile):
+    #     return (1 - game_map.get_distance(border, tile) / max_distance) * tile.production
+    #
+    # border_production_heuristic = {border: sum(partial_border_production_heuristic(border, tile) for tile in not_our_tiles) for border in borders}
+    #
+    # min_heuristic = min(map(itemgetter(1), border_production_heuristic.items()))
+    # max_heuristic = max(map(itemgetter(1), border_production_heuristic.items())) - min_heuristic
+    # border_production_heuristic = {border: (heuristic - min_heuristic) / max_heuristic for border, heuristic in border_production_heuristic.items()}
+    #
+    # if current_tick == 30:
+    #     for border, heuristic in border_production_heuristic.items():
+    #         logging.debug("prod heuristic for ({}, {}): {}".format(border.x, border.y, heuristic))
+
+    def border_value_for(tile):
+        def border_value(border):
+            distance = game_map.get_distance(border, tile) / max_distance
+
+            enemy_heuristic = 1 if any(enemy for enemy in game_map.neighbors(border) if enemy.owner != 0 and enemy.owner != myId) else 0
+            # production_heuristic = border_production_heuristic[border]
+
+            return distance - enemy_heuristic / 6 # + production_heuristic
+
+        return border_value
+
     if borders:
         unmoved_colony = [tile for tile in game_map if (is_inner(tile)) and (should_get_out(tile))]
 
         for tile in unmoved_colony:
-            nearest_tile = sorted(borders.copy(), key=lambda border: game_map.get_distance(border, tile))[0]
+            nearest_tile = sorted(borders.copy(), key=border_value_for(tile))[0]
 
             dx = game_map.get_distance_x(tile, nearest_tile)
             dy = game_map.get_distance_y(tile, nearest_tile)
